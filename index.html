@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AutoKanał YT - Dashboard</title>
+  <style>
+    :root {
+      --bg:#080b12; --surface:#10151f; --panel:#151b28; --border:#273244;
+      --text:#edf2f7; --muted:#94a3b8; --green:#35d07f; --blue:#6aa9ff;
+      --violet:#a78bfa; --red:#fb7185; --yellow:#fbbf24;
+      --mono:"Consolas","JetBrains Mono",monospace; --sans:Inter,system-ui,sans-serif;
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans)}
+    .app{display:grid;grid-template-columns:240px 1fr;min-height:100vh}
+    aside{background:var(--surface);border-right:1px solid var(--border);padding:20px 12px;position:sticky;top:0;height:100vh}
+    .logo{font-weight:800;font-size:18px;padding:6px 10px 22px}.logo span{display:block;color:var(--muted);font-size:12px;font-weight:500;margin-top:3px}
+    nav button{width:100%;text-align:left;border:0;background:transparent;color:var(--muted);padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:650;margin:2px 0}
+    nav button:hover,nav button.active{background:#182131;color:var(--text)} nav button.active{box-shadow:inset 3px 0 0 var(--green)}
+    main{padding:28px 32px}.page{display:none}.page.active{display:block}
+    .head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:22px}.head h1{margin:0;font-size:24px}.head p{margin:4px 0 0;color:var(--muted)}
+    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.mb{margin-bottom:16px}
+    .card{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:18px}.card h2{margin:0 0 14px;font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+    .stat .v{font:800 34px var(--mono);margin-top:7px}.green{color:var(--green)}.blue{color:var(--blue)}.violet{color:var(--violet)}.yellow{color:var(--yellow)}
+    label{display:block;color:var(--muted);font-size:13px;font-weight:650;margin:12px 0 6px}
+    input,select,textarea{width:100%;border:1px solid var(--border);background:#090d15;color:var(--text);border-radius:8px;padding:10px 12px;font:14px var(--sans)}
+    textarea{min-height:130px;resize:vertical}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .btn{border:0;border-radius:8px;padding:10px 14px;font-weight:800;cursor:pointer;background:#223047;color:var(--text);display:inline-flex;gap:8px;align-items:center}
+    .btn.primary{background:var(--green);color:#07100b}.btn.blue{background:#173255;color:#94c5ff}.btn.red{background:#3a1720;color:#ff9bad}.btn.full{width:100%;justify-content:center}
+    table{width:100%;border-collapse:collapse}th,td{padding:10px;border-bottom:1px solid var(--border);text-align:left;font-size:14px}th{color:var(--muted);font-size:12px;text-transform:uppercase}
+    code,.mono{font-family:var(--mono);color:var(--violet)}.pill{font:700 12px var(--mono);padding:3px 8px;border-radius:999px;background:#20314b;color:var(--blue)}
+    .log{background:#080c13;border:1px solid var(--border);border-radius:8px;padding:12px;height:170px;overflow:auto;font:12px/1.7 var(--mono);color:var(--muted)}
+    .pipeline{display:flex;gap:10px;align-items:center;overflow:auto}.node{min-width:110px;text-align:center}.icon{width:54px;height:54px;margin:auto;border:1px solid var(--border);border-radius:12px;display:grid;place-items:center;background:#0b111b;font-size:23px}.node small{color:var(--muted)}
+    .setup li{margin:10px 0;color:var(--muted)}.setup strong{color:var(--text)}
+    @media(max-width:900px){.app{grid-template-columns:1fr}aside{height:auto;position:static}.grid4,.grid2,.row{grid-template-columns:1fr}main{padding:18px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="logo">AutoKanał YT<span>GitHub Actions + Telegram</span></div>
+    <nav>
+      <button class="active" onclick="show('dashboard',this)">Dashboard</button>
+      <button onclick="show('generator',this)">Generator filmów</button>
+      <button onclick="show('schedule',this)">Harmonogram</button>
+      <button onclick="show('queue',this)">Kolejka</button>
+      <button onclick="show('config',this)">Konfiguracja</button>
+      <button onclick="show('start',this)">Instrukcja startu</button>
+    </nav>
+  </aside>
+  <main>
+    <section id="dashboard" class="page active">
+      <div class="head"><div><h1>Dashboard</h1><p>Panel do zarządzania automatycznym kanałem YouTube.</p></div><button class="btn primary" onclick="simulate()">Symuluj pipeline</button></div>
+      <div class="grid4 mb">
+        <div class="card stat"><h2>Opublikowane</h2><div id="statPublished" class="v green">0</div></div>
+        <div class="card stat"><h2>W kolejce</h2><div id="statQueue" class="v blue">0</div></div>
+        <div class="card stat"><h2>Rytm</h2><div id="statEvery" class="v violet">2d</div></div>
+        <div class="card stat"><h2>Godzina</h2><div id="statTime" class="v yellow">16:00</div></div>
+      </div>
+      <div class="card mb">
+        <h2>Pipeline</h2>
+        <div class="pipeline" id="pipeline"></div>
+      </div>
+      <div class="grid2">
+        <div class="card"><h2>Logi</h2><div id="log" class="log">[ready] Dashboard gotowy. Dane trzymane są lokalnie w przeglądarce.</div></div>
+        <div class="card"><h2>Szybki eksport</h2><p style="color:var(--muted)">Po edycji kolejki pobierz JSON i wrzuć do repo jako <code>data/queue.json</code>.</p><button class="btn blue" onclick="downloadQueue()">Pobierz queue.json</button> <button class="btn" onclick="downloadConfig()">Pobierz .env.example</button></div>
+      </div>
+    </section>
+
+    <section id="generator" class="page">
+      <div class="head"><div><h1>Generator filmów</h1><p>Tu przygotujesz wpis do kolejki. Właściwy skrypt wygeneruje Python przez Gemini.</p></div></div>
+      <div class="grid2">
+        <div class="card">
+          <h2>Nowy temat</h2>
+          <label>Temat</label><input id="topic" placeholder="np. 5 faktów o głębinach oceanu">
+          <label>Pexels query</label><input id="pexels" placeholder="deep ocean sea">
+          <div class="row"><div><label>Długość</label><select id="duration"><option value="60">60 s</option><option value="180" selected>180 s</option><option value="300">300 s</option></select></div><div><label>Styl</label><input id="style" value="tajemniczy i angażujący"></div></div>
+          <button class="btn primary full" onclick="addToQueue()">Dodaj do kolejki</button>
+        </div>
+        <div class="card">
+          <h2>Podgląd JSON</h2>
+          <textarea id="jsonPreview" readonly></textarea>
+        </div>
+      </div>
+    </section>
+
+    <section id="schedule" class="page">
+      <div class="head"><div><h1>Harmonogram</h1><p>GitHub Actions uruchamia workflow co godzinę, a Python publikuje tylko o wskazanej godzinie.</p></div></div>
+      <div class="card">
+        <div class="row"><div><label>Publikuj co ile dni</label><input id="every" type="number" min="1" value="2" oninput="saveSchedule()"></div><div><label>Godzina Europe/Warsaw</label><input id="time" type="time" value="16:00" oninput="saveSchedule()"></div></div>
+        <p style="color:var(--muted)">Ustaw te same wartości jako GitHub Variables: <code>PUBLISH_EVERY_DAYS</code>, <code>PUBLISH_TIME</code>, <code>TIMEZONE</code>.</p>
+      </div>
+    </section>
+
+    <section id="queue" class="page">
+      <div class="head"><div><h1>Kolejka</h1><p>Filmy czekające na wygenerowanie i publikację.</p></div><button class="btn red" onclick="clearQueue()">Wyczyść</button></div>
+      <div class="card"><table><thead><tr><th>#</th><th>Temat</th><th>Pexels</th><th>Długość</th><th>Status</th><th></th></tr></thead><tbody id="queueRows"></tbody></table></div>
+    </section>
+
+    <section id="config" class="page">
+      <div class="head"><div><h1>Konfiguracja</h1><p>Nie zapisuj sekretów w repo. Dodaj je w GitHub: Settings -> Secrets and variables -> Actions.</p></div></div>
+      <div class="grid2">
+        <div class="card"><h2>Secrets</h2><div id="secrets"></div></div>
+        <div class="card"><h2>Variables</h2><div id="vars"></div></div>
+      </div>
+    </section>
+
+    <section id="start" class="page">
+      <div class="head"><div><h1>Instrukcja startu</h1><p>Kroki do uruchomienia MVP.</p></div></div>
+      <div class="card setup">
+        <ol>
+          <li><strong>Utwórz repo GitHub</strong> i wrzuć cały katalog projektu.</li>
+          <li><strong>Zainstaluj lokalnie zależności:</strong> <code>python -m venv .venv</code>, potem <code>pip install -r requirements.txt</code>.</li>
+          <li><strong>Wygeneruj YouTube refresh token:</strong> pobierz OAuth Client JSON z Google Cloud jako <code>client_secret.json</code>, potem uruchom <code>python scripts/create_youtube_token.py</code>.</li>
+          <li><strong>Dodaj GitHub Secrets:</strong> Gemini, Pexels, YouTube i opcjonalnie Telegram.</li>
+          <li><strong>Test bez uploadu:</strong> Actions -> AutoKanał YouTube -> Run workflow -> <code>no_upload=true</code>.</li>
+          <li><strong>Publikacja:</strong> ustaw <code>YOUTUBE_PRIVACY_STATUS=private</code> na start, sprawdź film, potem zmień na <code>public</code>.</li>
+        </ol>
+        <button class="btn blue" onclick="downloadReadme()">Pobierz instrukcję README.md</button>
+      </div>
+    </section>
+  </main>
+</div>
+<script>
+const pipelineSteps = ["Gemini skrypt", "Edge TTS", "Pexels media", "MoviePy montaż", "YouTube upload"];
+const secretNames = ["GEMINI_API_KEY", "PEXELS_API_KEY", "YOUTUBE_CLIENT_ID", "YOUTUBE_CLIENT_SECRET", "YOUTUBE_REFRESH_TOKEN", "TELEGRAM_BOT_TOKEN", "TELEGRAM_ALLOWED_CHAT_ID"];
+const varNames = ["PUBLISH_TIME=16:00", "PUBLISH_EVERY_DAYS=2", "TIMEZONE=Europe/Warsaw", "YOUTUBE_PRIVACY_STATUS=private"];
+let queue = JSON.parse(localStorage.getItem("yt_queue") || "[]");
+
+function show(id, btn){document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));document.getElementById(id).classList.add("active");btn.classList.add("active");render();}
+function save(){localStorage.setItem("yt_queue", JSON.stringify(queue));}
+function addLog(msg){const el=document.getElementById("log");el.textContent += `\n[${new Date().toLocaleTimeString("pl-PL")}] ${msg}`;el.scrollTop=el.scrollHeight;}
+function addToQueue(){const topic=document.getElementById("topic").value.trim();if(!topic){alert("Podaj temat.");return}queue.push({topic,pexels_query:document.getElementById("pexels").value.trim()||topic,style:document.getElementById("style").value.trim(),duration_seconds:Number(document.getElementById("duration").value)});save();addLog(`Dodano do kolejki: ${topic}`);render();show("queue",document.querySelectorAll("nav button")[3]);}
+function removeItem(i){queue.splice(i,1);save();render();}
+function clearQueue(){if(confirm("Wyczyścić kolejkę?")){queue=[];save();render();}}
+function saveSchedule(){localStorage.setItem("yt_every",document.getElementById("every").value);localStorage.setItem("yt_time",document.getElementById("time").value);render();}
+function download(name, content){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([content],{type:"text/plain"}));a.download=name;a.click();}
+function downloadQueue(){download("queue.json", JSON.stringify(queue,null,2)+"\n");}
+function downloadConfig(){download(".env.example", `GEMINI_API_KEY=\nPEXELS_API_KEY=\nYOUTUBE_CLIENT_ID=\nYOUTUBE_CLIENT_SECRET=\nYOUTUBE_REFRESH_TOKEN=\nYOUTUBE_PRIVACY_STATUS=private\nTELEGRAM_BOT_TOKEN=\nTELEGRAM_ALLOWED_CHAT_ID=\nPUBLISH_TIME=${document.getElementById("time").value}\nPUBLISH_EVERY_DAYS=${document.getElementById("every").value}\nTIMEZONE=Europe/Warsaw\n`);}
+function downloadReadme(){download("README_START.md", "Zobacz README.md w projekcie. Ten dashboard jest statycznym panelem pomocniczym.\\n");}
+async function simulate(){for(const [i,step] of pipelineSteps.entries()){addLog(`${i+1}/5 ${step}...`);await new Promise(r=>setTimeout(r,450));}addLog("Symulacja zakończona.");}
+function render(){
+  const every=localStorage.getItem("yt_every")||"2";const time=localStorage.getItem("yt_time")||"16:00";
+  document.getElementById("every").value=every;document.getElementById("time").value=time;
+  document.getElementById("statQueue").textContent=queue.length;document.getElementById("statEvery").textContent=every+"d";document.getElementById("statTime").textContent=time;
+  document.getElementById("pipeline").innerHTML=pipelineSteps.map(s=>`<div class="node"><div class="icon">▶</div><small>${s}</small></div>`).join("");
+  document.getElementById("queueRows").innerHTML=queue.length?queue.map((q,i)=>`<tr><td>${i+1}</td><td>${q.topic}</td><td><code>${q.pexels_query}</code></td><td>${q.duration_seconds}s</td><td><span class="pill">QUEUE</span></td><td><button class="btn red" onclick="removeItem(${i})">Usuń</button></td></tr>`).join(""):`<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px">Kolejka pusta</td></tr>`;
+  document.getElementById("jsonPreview").value=JSON.stringify({topic:document.getElementById("topic")?.value||"",pexels_query:document.getElementById("pexels")?.value||"",style:document.getElementById("style")?.value||"",duration_seconds:Number(document.getElementById("duration")?.value||180)},null,2);
+  document.getElementById("secrets").innerHTML=secretNames.map(s=>`<p><code>${s}</code></p>`).join("");
+  document.getElementById("vars").innerHTML=varNames.map(s=>`<p><code>${s}</code></p>`).join("");
+}
+["topic","pexels","style","duration"].forEach(id=>setTimeout(()=>document.getElementById(id)?.addEventListener("input",render),0));
+render();
+</script>
+</body>
+</html>
