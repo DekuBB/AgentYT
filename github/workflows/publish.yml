@@ -1,0 +1,91 @@
+name: AutoKanał YouTube
+
+on:
+  workflow_dispatch:
+    inputs:
+      no_upload:
+        description: "Wygeneruj MP4 bez uploadu"
+        required: false
+        default: "false"
+  schedule:
+    # Workflow startuje co godzinę, a Python sprawdza lokalną godzinę Europe/Warsaw.
+    # Dzięki temu publikacja o 16:00 działa również po zmianie czasu lato/zima.
+    - cron: "0 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run scheduled pipeline
+        if: github.event_name == 'schedule'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-1.5-flash' }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS || 'private' }}
+          PUBLISH_TIME: ${{ vars.PUBLISH_TIME || '16:00' }}
+          PUBLISH_EVERY_DAYS: ${{ vars.PUBLISH_EVERY_DAYS || '2' }}
+          TIMEZONE: ${{ vars.TIMEZONE || 'Europe/Warsaw' }}
+        run: python -m src.pipeline --scheduled
+
+      - name: Run manual pipeline
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-1.5-flash' }}
+          PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+          YOUTUBE_CLIENT_ID: ${{ secrets.YOUTUBE_CLIENT_ID }}
+          YOUTUBE_CLIENT_SECRET: ${{ secrets.YOUTUBE_CLIENT_SECRET }}
+          YOUTUBE_REFRESH_TOKEN: ${{ secrets.YOUTUBE_REFRESH_TOKEN }}
+          YOUTUBE_PRIVACY_STATUS: ${{ vars.YOUTUBE_PRIVACY_STATUS || 'private' }}
+          PUBLISH_TIME: ${{ vars.PUBLISH_TIME || '16:00' }}
+          PUBLISH_EVERY_DAYS: ${{ vars.PUBLISH_EVERY_DAYS || '2' }}
+          TIMEZONE: ${{ vars.TIMEZONE || 'Europe/Warsaw' }}
+        run: |
+          if [ "${{ inputs.no_upload }}" = "true" ]; then
+            python -m src.pipeline --once --no-upload
+          else
+            python -m src.pipeline --once
+          fi
+
+      - name: Upload generated video artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: output
+          path: output
+          if-no-files-found: ignore
+
+      - name: Commit state changes
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/state.json data/queue.json
+          git diff --cached --quiet || git commit -m "Update automation state"
+          git push
